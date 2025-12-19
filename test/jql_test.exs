@@ -3,7 +3,7 @@ defmodule JQLTest do
 
   require JQL
 
-  doctest JQL, import: true
+  doctest JQL
 
   describe "query/1" do
     test "basic" do
