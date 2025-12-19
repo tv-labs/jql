@@ -31,10 +31,7 @@ defmodule JQL do
 
   defstruct query: [], order_by: []
 
-  def new do
-    %__MODULE__{}
-  end
-
+  @doc false
   def new({query, order_by}) do
     new(query: query, order_by: order_by)
   end
@@ -46,7 +43,7 @@ defmodule JQL do
   @doc """
   DSL for expressing a JQL query as elixir terms
 
-      iex> jql = query(:project == "tvl" and Organizations in ["TV Labs", "ITV"])
+      iex> jql = JQL.query(:project == "tvl" and Organizations in ["TV Labs", "ITV"])
       iex> to_string(jql)
       ~S[project = tvl and Organizations in ("TV Labs", ITV)]
   """
@@ -58,6 +55,13 @@ defmodule JQL do
     end
   end
 
+  @doc """
+  DSL for epxressing writing elixir terms with a trailing order_by
+
+      iex> jql = JQL.query(:project == "tvl", order_by: :created)
+      iex> to_string(jql)
+      ~S[project = tvl order by created]
+  """
   defmacro query(one, two) do
     one = parse_expression(one)
     two = parse_expression(two)
@@ -73,14 +77,14 @@ defmodule JQL do
   @doc """
   Appends a JQL expression to an existing query
 
-      iex> jql = query(:project == "tvl")
-      iex> to_string(where(jql, :status == "Done"))
+      iex> jql = JQL.query(:project == "tvl")
+      iex> to_string(JQL.where(jql, :status == "Done"))
       ~S[project = tvl and status = Done]
 
   Order by supported too
 
-      iex> jql = query(:project == "tvl" and :status == "Done")
-      iex> to_string(where(jql, order_by: :created_at))
+      iex> jql = JQL.query(:project == "tvl" and :status == "Done")
+      iex> to_string(JQL.where(jql, order_by: :created_at))
       ~S[project = tvl and status = Done order by created_at]
 
   """
@@ -108,6 +112,9 @@ defmodule JQL do
     %__MODULE__{query: query, order_by: one.order_by ++ two.order_by}
   end
 
+  @doc """
+  Allows for writing `field was in (value1, value2)` type expressions
+  """
   defmacro was_in(query, field, values) do
     was_in = {:{}, [], [:was_in, parse_fragment(field), parse_fragment(values)]}
 
