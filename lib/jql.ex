@@ -1,7 +1,32 @@
 defmodule JQL do
   @moduledoc """
-  Implements a DSL for expressing Atlassian JQL in Elixir, similar to
-  the Ecto query lanaguage
+  JQL is an Elixir DSL for writing Atlassian Jira Query Language expressions.
+
+  ## Features
+
+  * Compile-time validation of queries
+  * Query composition
+  * Syntax highlighting
+
+  ## Examples
+
+  ### Compound queries
+
+      iex> query = JQL.query(:status == "Done" and :created >= {:days, -5}, order_by: {:desc, :updated})
+      iex> to_string(query)
+      ~S[status = Done and created >= -5d order by updated desc]
+
+  ### Query Composition
+
+  ```elixir
+  query = JQL.query(:status == "Done")
+
+  if created_after = opts[:created_after] do
+    JQL.query(query, :created >= ^created_after)
+  else
+    query
+  end
+  ```
   """
 
   defstruct query: [], order_by: []
@@ -21,9 +46,9 @@ defmodule JQL do
   @doc """
   DSL for expressing a JQL query as elixir terms
 
-      iex> jql = query(project == "tvl" and Organizations in ["TV Labs", "ITV"])
+      iex> jql = query(:project == "tvl" and Organizations in ["TV Labs", "ITV"])
       iex> to_string(jql)
-      ~S[project = "tvl" and "Organizations" in ("TV Labs", "ITV")]
+      ~S[project = tvl and Organizations in ("TV Labs", ITV)]
   """
   defmacro query(expression) do
     {query, order_by} = parse_expression(expression)
@@ -48,15 +73,15 @@ defmodule JQL do
   @doc """
   Appends a JQL expression to an existing query
 
-      iex> jql = query(project == "tvl")
-      iex> to_string(where(jql, status == "Done"))
-      ~S[project = "tvl" and status = "Done"]
+      iex> jql = query(:project == "tvl")
+      iex> to_string(where(jql, :status == "Done"))
+      ~S[project = tvl and status = Done]
 
   Order by supported too
 
-      iex> jql = query(project == "tvl" and status == "Done")
+      iex> jql = query(:project == "tvl" and :status == "Done")
       iex> to_string(where(jql, order_by: :created_at))
-      ~S[project = "tvl" and status = "Done" order by created_at]
+      ~S[project = tvl and status = Done order by created_at]
 
   """
   defmacro where(query, expression) do
@@ -107,6 +132,12 @@ defmodule JQL do
       end)
 
     {Enum.reverse(query), Enum.reverse(order_by)}
+  catch
+    {clause, reason} ->
+      raise JQL.InvalidExpressionException,
+        expression: expression,
+        clause: clause,
+        reason: reason
   end
 
   defp parse_fragment({:__aliases__, _meta, [atom]}) do
@@ -133,8 +164,8 @@ defmodule JQL do
     {:{}, [], [:excludes, parse_fragment(left), parse_fragment(right)]}
   end
 
-  defp parse_fragment({atom, _meta, nil}) when is_atom(atom) do
-    atom
+  defp parse_fragment({atom, _meta, nil} = clause) when is_atom(atom) do
+    throw_invalid_variable(clause)
   end
 
   defp parse_fragment({operator, _meta, [left, right]}) when operator in [:<, :<=, :>, :>=] do
@@ -164,7 +195,7 @@ defmodule JQL do
   end
 
   defp parse_fragment(expression) do
-    raise "Unsupported expression #{inspect(expression)}"
+    throw({expression, "not supported"})
   end
 
   defp parse_order_by({:order_by, order_by}) do
@@ -190,7 +221,10 @@ defmodule JQL do
   end
 
   defp parse_identifier(atom) when is_atom(atom), do: atom
-  defp parse_identifier({atom, _, nil}), do: atom
+
+  defp parse_identifier({atom, _, nil} = clause) when is_atom(atom) do
+    throw_invalid_variable(clause)
+  end
 
   defp parse_identifier({:^, _, [{_, _, nil} = var]}) do
     quote do
@@ -208,6 +242,11 @@ defmodule JQL do
           Kernel.var!(unquote(var))
         end
     end
+  end
+
+  defp throw_invalid_variable(clause) do
+    reason = "use atoms or Module syntax for identifiers. To inject a variable, use ^"
+    throw({clause, reason})
   end
 
   defimpl String.Chars do
@@ -253,7 +292,11 @@ defmodule JQL do
     end
 
     defp fragment_to_list(binary) when is_binary(binary) do
-      ["\"", binary, "\""]
+      if String.contains?(binary, " ") do
+        ["\"", binary, "\""]
+      else
+        [binary]
+      end
     end
 
     defp fragment_to_list(atom) when is_atom(atom) do
