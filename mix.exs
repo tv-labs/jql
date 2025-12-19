@@ -2,7 +2,7 @@ defmodule JQL.MixProject do
   use Mix.Project
 
   @url "https://github.com/tv-labs/jql"
-  @version "0.4.0"
+  @version "0.0.1"
 
   def project do
     [

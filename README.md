@@ -21,12 +21,10 @@ JQL.query(:status == Done and :created >= {:days, ^days})
 
 ## Installation
 
-JQL is currently experimental and thus is not published to Hex.pm. You can pull it in via github. It is recommended to pin to a particular commit as well using the `:ref` option
-
 ```elixir
 def deps do
   [
-    {:jql, github: "tv-labs/jql", ref: "<Commit SHA goes here>"}
+    {:jql, "~> 0.0.1"}
   ]
 end
 ```
