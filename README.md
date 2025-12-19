@@ -14,8 +14,8 @@ JQL.query(:status == Done and :created >= {:days, ^days})
 
 ## Roadmap
 
-- [ ] Remove the variable-like syntax e.g. `JQL.query(status == "Done")` in favor of `JQL.query(:status == "Done")`
-- [ ] Improve error messages when syntax is invalid
+- [x] Remove the variable-like syntax e.g. `JQL.query(status == "Done")` in favor of `JQL.query(:status == "Done")`
+- [x] Improve error messages when syntax is invalid
 - [ ] Figure out a way to override operator associativity (Elixir AST will not contain parenthesis)
 - [ ] Provide stronger guarantees for accepting valid query fragments (We currently allow you to write invalid queries)
 
